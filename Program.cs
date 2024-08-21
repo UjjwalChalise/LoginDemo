@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Facebook;
-using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,17 +10,51 @@ builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = FacebookDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = null; // Or remove this entirely
 })
-.AddCookie()
+    .AddCookie(options =>
+    {
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    })
 
+.AddTwitter(twitterOptions =>
+ {
+     twitterOptions.ConsumerKey = "5UrLYPb9kNqLOouf68eUReblp";
+     twitterOptions.ConsumerSecret = "9TwCU7okiwZnOebK4Lscuhc8utRZXgfqcPYp6ahqihdiDRKRbd";
+     twitterOptions.CallbackPath = "/signin-twitter";
+     twitterOptions.AccessDeniedPath = "/signin-facebook";
+ })
 .AddFacebook(options =>
 {
     options.AppId = "1684281592350201";
     options.AppSecret = "51ad0b358a4a8acd098a13a2c3aa035e";
 });
 
+builder.Services.AddDistributedMemoryCache();
+
+
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30); // Set session timeout
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -35,6 +67,10 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseCors(); // Use CORS before authentication
+
+app.UseSession(); // Add this line to enable session support
+
 
 app.UseAuthentication(); // Add this line to enable authentication
 app.UseAuthorization();
